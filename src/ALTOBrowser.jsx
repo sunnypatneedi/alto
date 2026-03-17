@@ -18,12 +18,12 @@ const GAP_DATA = [
 ];
 
 const STATIC_FEEDS = [
-  { file: "agency.json", analogy: "GTFS agency.txt", purpose: "Operator identity, UTM registration, jurisdiction IDs", keyFields: ["agency_id", "uss_id", "faa_operator_id", "agency_timezone"] },
-  { file: "vehicles.json", analogy: "GTFS vehicles (extended)", purpose: "Fleet registry \u2014 class, payload, certifications, capabilities", keyFields: ["vehicle_class", "max_payload_kg", "detect_and_avoid", "certifications"] },
-  { file: "vertiports.json", analogy: "GTFS stops.txt", purpose: "Landing pads, hubs, delivery points, charging nodes", keyFields: ["vertiport_type", "pad_count", "charging_type", "weather_constraints"] },
-  { file: "corridors.json", analogy: "GTFS routes.txt", purpose: "Established aerial routes with 3D waypoints and altitude profiles", keyFields: ["waypoints[].alt_ft_agl", "altitude_layer", "geofence_buffer_m", "bidirectional"] },
-  { file: "flight_patterns.json", analogy: "GTFS trips.txt + stop_times.txt", purpose: "Scheduled or on-demand recurring flight windows", keyFields: ["service_type", "frequency_min", "operating_days", "window_start"] },
-  { file: "altitude_zones.json", analogy: "No GTFS equivalent", purpose: "Static airspace constraints, exclusion zones (refs UTM geofence)", keyFields: ["zone_type", "alt_floor_ft_agl", "alt_ceiling_ft_agl", "authority"] },
+  { file: "agency.json", analogy: "Operator identity", purpose: "Operator identity, UTM registration, jurisdiction IDs", keyFields: ["agency_id", "uss_id", "faa_operator_id", "agency_timezone"] },
+  { file: "vehicles.json", analogy: "Fleet registry", purpose: "Fleet registry \u2014 class, payload, certifications, capabilities", keyFields: ["vehicle_class", "max_payload_kg", "detect_and_avoid", "certifications"] },
+  { file: "vertiports.json", analogy: "Ground nodes", purpose: "Landing pads, hubs, delivery points, charging nodes", keyFields: ["vertiport_type", "pad_count", "charging_type", "weather_constraints"] },
+  { file: "corridors.json", analogy: "Aerial routes", purpose: "Established aerial routes with 3D waypoints and altitude profiles", keyFields: ["waypoints[].alt_ft_agl", "altitude_layer", "geofence_buffer_m", "bidirectional"] },
+  { file: "flight_patterns.json", analogy: "Flight schedules", purpose: "Scheduled or on-demand recurring flight windows", keyFields: ["service_type", "frequency_min", "operating_days", "window_start"] },
+  { file: "altitude_zones.json", analogy: "Airspace constraints", purpose: "Static airspace constraints, exclusion zones (refs UTM geofence)", keyFields: ["zone_type", "alt_floor_ft_agl", "alt_ceiling_ft_agl", "authority"] },
 ];
 
 const REALTIME_FEEDS = [
@@ -124,7 +124,7 @@ export default function ALTOBrowser() {
   };
 
   const sampleVehicle = `{
-  "vehicle_id": "wm-x2-007",
+  "vehicle_id": "sky-x2-007",
   "vehicle_class": "delivery_drone",
   "vehicle_type": "fixed_wing_vtol",
   "remote_id": "ASTM-F3411-SN-ABC123",
@@ -147,7 +147,7 @@ export default function ALTOBrowser() {
 }`;
 
   const samplePosition = `{
-  "vehicle_id": "wm-x2-007",
+  "vehicle_id": "sky-x2-007",
   "position": {
     "lat": 37.7100, "lon": -122.4050,
     "alt_ft_agl": 298, "heading_deg": 352,
@@ -160,7 +160,7 @@ export default function ALTOBrowser() {
 
   const sampleDelivery = `POST /alto/v1/deliveries
 {
-  "delivery_id": "DEL-2025-WING-88821",
+  "delivery_id": "DEL-2025-SKY-88821",
   "cargo": {
     "weight_kg": 0.85,
     "category": "retail_general",
@@ -169,7 +169,7 @@ export default function ALTOBrowser() {
   "pickup":  { "vertiport_id": "SFO-DOCK-01" },
   "dropoff": { "vertiport_id": "SOMA-DROP-07",
                "lat": 37.7849, "lon": -122.3960 },
-  "notify_webhook": "https://retailer.com/webhooks"
+  "notify_webhook": "https://retailer.example.com/webhooks"
 }`;
 
   return (
@@ -202,8 +202,8 @@ export default function ALTOBrowser() {
               <Badge text="v0.1" color={accent} />
             </div>
             <p style={s.sub}>
-              ALTO is an open data standard for drones and aerial vehicles — modeled on GTFS (transit) and OCPI (EV charging).
-              It fills the consumer data layer absent from all existing FAA/ICAO safety frameworks.
+              ALTO is an open data standard for drones and aerial vehicles.
+              It fills the consumer and operational data layer absent from all existing FAA/ICAO safety frameworks.
             </p>
 
             <h2 style={s.h2}>The Gap ALTO Fills</h2>
@@ -275,7 +275,7 @@ export default function ALTOBrowser() {
                   <div>
                     <div style={{ fontSize: "13px", fontWeight: 700, color: accent, marginBottom: "4px", fontFamily: "monospace" }}>{feed.file}</div>
                     <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "6px" }}>{feed.purpose}</div>
-                    <Badge text={`GTFS: ${feed.analogy}`} color="#475569" />
+                    <Badge text={feed.analogy} color="#475569" />
                   </div>
                   <span style={{ color: "#334155" }}>{expandedFeed === i ? "\u25B4" : "\u25BE"}</span>
                 </div>
@@ -327,7 +327,7 @@ export default function ALTOBrowser() {
         {active === "delivery" && (
           <div>
             <h1 style={s.h1}>Delivery Extension</h1>
-            <p style={s.sub}>Cargo lifecycle from order to confirmed drop. Modeled on OCPI&#39;s Session + CDR. No equivalent open standard exists today.</p>
+            <p style={s.sub}>Cargo lifecycle from order to confirmed drop. No equivalent open standard exists today.</p>
 
             <h2 style={s.h2}>Lifecycle</h2>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", alignItems: "center", marginBottom: "24px" }}>
@@ -348,14 +348,14 @@ export default function ALTOBrowser() {
             </div>
 
             <h2 style={s.h2}>Delivery Result Record (DRR)</h2>
-            <p style={{ fontSize: "11px", color: "#475569", marginBottom: "12px" }}>Immutable completion record — analogous to OCPI&#39;s Charge Detail Record. Enables billing, audit, and carbon accounting.</p>
+            <p style={{ fontSize: "11px", color: "#475569", marginBottom: "12px" }}>Immutable completion record. Enables billing, audit, and carbon accounting.</p>
             <table style={s.table}>
               <thead><tr>
                 <th style={s.th}>Field</th><th style={s.th}>Example</th><th style={s.th}>Purpose</th>
               </tr></thead>
               <tbody>
                 {[
-                  ["drr_id", "DRR-2025-WING-88821", "Immutable record ID"],
+                  ["drr_id", "DRR-2025-SKY-88821", "Immutable record ID"],
                   ["duration_sec", "1177", "Total delivery time"],
                   ["distance_km", "22.1", "Actual route flown"],
                   ["energy_kwh", "0.12", "Energy consumed \u2014 billing + carbon"],
@@ -377,19 +377,19 @@ export default function ALTOBrowser() {
         {active === "roaming" && (
           <div>
             <h1 style={s.h1}>Roaming API</h1>
-            <p style={s.sub}>Cross-operator interoperability — enables Wing to hand off a delivery to Amazon Air at a neutral interchange vertiport. Directly modeled on OCPI&#39;s roaming protocol.</p>
+            <p style={s.sub}>Cross-operator interoperability — enables one operator to hand off a delivery to a partner operator at a neutral interchange vertiport.</p>
 
-            <h2 style={s.h2}>OCPI &rarr; ALTO Mapping</h2>
+            <h2 style={s.h2}>Concept Mapping</h2>
             <table style={s.table}>
-              <thead><tr><th style={s.th}>OCPI Concept</th><th style={s.th}>ALTO Equivalent</th></tr></thead>
+              <thead><tr><th style={s.th}>Roaming Concept</th><th style={s.th}>ALTO Equivalent</th></tr></thead>
               <tbody>
                 {[
-                  ["Charge Point", "Vertiport"],
-                  ["Location", "Vertiport + Corridor"],
-                  ["Session", "Flight / Delivery Session"],
-                  ["CDR", "Delivery Result Record (DRR)"],
-                  ["Token (eMSP)", "Operator peer credential"],
-                  ["Hub", "ALTO Network Directory"],
+                  ["Charging station", "Vertiport"],
+                  ["Location / coverage", "Vertiport + Corridor"],
+                  ["Usage session", "Flight / Delivery Session"],
+                  ["Billing record", "Delivery Result Record (DRR)"],
+                  ["Auth token", "Operator peer credential"],
+                  ["Hub / directory", "ALTO Network Directory"],
                 ].map(([o, a]) => (
                   <tr key={o}>
                     <td style={s.td}>{o}</td>
