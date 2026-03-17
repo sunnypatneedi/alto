@@ -227,7 +227,7 @@ export default function ALTOBrowser() {
             <h2 style={s.h2}>Design Principles</h2>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "28px" }}>
               {[
-                ["Open by Default", "Apache 2.0. No license fees. GitHub-hosted at alto-spec/alto."],
+                ["Open by Default", "Apache 2.0. No license fees. GitHub-hosted at openalto-spec/alto."],
                 ["Static + Realtime", "Static feeds for planning. Realtime polling/WebSocket for ops."],
                 ["3D-Native", "Altitude is a first-class field \u2014 not retrofitted."],
                 ["Modular Extensions", "Core + opt-in Delivery, AAM Passenger, Inspection modules."],

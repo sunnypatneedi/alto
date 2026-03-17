@@ -13,7 +13,7 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0
   contact:
     name: ALTO Spec Working Group
-    url: https://github.com/alto-spec/alto
+    url: https://github.com/openalto-spec/alto
 
 servers:
   - url: https://{operator-host}/alto/v1
