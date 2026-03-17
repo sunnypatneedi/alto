@@ -1061,4 +1061,4 @@ The DRR includes a `phases[]` array with per-phase cost, duration, distance, and
 
 -----
 
-*ALTO v0.1 — Published for public comment. Contributions welcome at github.com/alto-spec/alto*
+*ALTO v0.1 — Published for public comment. Contributions welcome at github.com/openalto-spec/alto*
