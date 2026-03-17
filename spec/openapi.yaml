@@ -1,0 +1,841 @@
+openapi: 3.0.3
+info:
+  title: ALTO — Aerial Logistics & Transit Open-standard API
+  description: |
+    REST API for the ALTO open data standard. Covers Realtime feeds,
+    Delivery lifecycle, and Roaming (cross-operator) endpoints.
+
+    Static feeds are distributed as JSON file bundles (ZIP or directory)
+    and are not part of this API surface.
+  version: "0.1.0"
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  contact:
+    name: ALTO Spec Working Group
+    url: https://github.com/alto-spec/alto
+
+servers:
+  - url: https://{operator-host}/alto/v1
+    description: Operator-hosted ALTO endpoint
+    variables:
+      operator-host:
+        default: api.example.com
+
+tags:
+  - name: Realtime
+    description: Live telemetry and operational feeds
+  - name: Delivery
+    description: Cargo delivery lifecycle (Extension module)
+  - name: Roaming
+    description: Cross-operator interoperability
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ── Realtime ──────────────────────────────────────────────
+
+  /realtime/vehicle_positions:
+    get:
+      operationId: getVehiclePositions
+      tags: [Realtime]
+      summary: Live vehicle positions
+      description: |
+        Returns 3D positions, heading, speed, battery, and Remote ID
+        status for all active vehicles. Public feeds are delayed ≥5 s.
+      parameters:
+        - $ref: "#/components/parameters/BoundingBox"
+        - $ref: "#/components/parameters/VehicleClass"
+      responses:
+        "200":
+          description: Vehicle position feed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VehiclePositionFeed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /realtime/flight_updates:
+    get:
+      operationId: getFlightUpdates
+      tags: [Realtime]
+      summary: ETA and delay updates for active flights
+      parameters:
+        - name: corridor_id
+          in: query
+          schema:
+            type: string
+        - name: flight_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Flight update feed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlightUpdateFeed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /realtime/alerts:
+    get:
+      operationId: getAlerts
+      tags: [Realtime]
+      summary: Service alerts — weather, airspace, faults
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [low, moderate, severe, critical]
+        - name: active_only
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: Alert feed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertFeed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Delivery Extension ────────────────────────────────────
+
+  /deliveries:
+    post:
+      operationId: createDelivery
+      tags: [Delivery]
+      summary: Create a delivery session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryRequest"
+      responses:
+        "201":
+          description: Delivery session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliverySession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    get:
+      operationId: listDeliveries
+      tags: [Delivery]
+      summary: List delivery sessions
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/DeliveryStatus"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Paginated list of deliveries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DeliverySession"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /deliveries/{delivery_id}:
+    get:
+      operationId: getDelivery
+      tags: [Delivery]
+      summary: Get delivery status and timeline
+      parameters:
+        - name: delivery_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Delivery session details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliverySession"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /deliveries/{delivery_id}/cancel:
+    post:
+      operationId: cancelDelivery
+      tags: [Delivery]
+      summary: Cancel a delivery (pre-flight only)
+      parameters:
+        - name: delivery_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Delivery cancelled
+        "409":
+          description: Delivery already in flight — cannot cancel
+
+  /drr/{drr_id}:
+    get:
+      operationId: getDRR
+      tags: [Delivery]
+      summary: Get Delivery Result Record
+      description: Immutable completion record — billing, audit, carbon accounting.
+      parameters:
+        - name: drr_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Delivery Result Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryResultRecord"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Roaming ───────────────────────────────────────────────
+
+  /roaming/register:
+    post:
+      operationId: registerPeer
+      tags: [Roaming]
+      summary: Register as an ALTO peer operator
+      security:
+        - OAuth2: [roaming]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PeerRegistration"
+      responses:
+        "201":
+          description: Peer registered
+        "409":
+          description: Operator already registered
+
+  /roaming/handoff:
+    post:
+      operationId: requestHandoff
+      tags: [Roaming]
+      summary: Request a delivery handoff to a partner operator
+      security:
+        - OAuth2: [roaming]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HandoffRequest"
+      responses:
+        "201":
+          description: Handoff accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HandoffResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Fulfilling operator not found
+
+  /roaming/operators:
+    get:
+      operationId: listOperators
+      tags: [Roaming]
+      summary: Network directory of registered ALTO operators
+      responses:
+        "200":
+          description: Operator list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PeerRegistration"
+
+  /roaming/coverage:
+    get:
+      operationId: getCoverage
+      tags: [Roaming]
+      summary: GeoJSON coverage polygon for this operator
+      responses:
+        "200":
+          description: GeoJSON FeatureCollection
+          content:
+            application/geo+json:
+              schema:
+                type: object
+                description: GeoJSON FeatureCollection
+
+# ════════════════════════════════════════════════════════════
+# Components
+# ════════════════════════════════════════════════════════════
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+    OAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://{operator-host}/alto/v1/oauth/token
+          scopes:
+            realtime: Read realtime feeds
+            delivery: Manage deliveries
+            roaming: Cross-operator operations
+
+  parameters:
+    BoundingBox:
+      name: bbox
+      in: query
+      description: "Bounding box filter: min_lon,min_lat,max_lon,max_lat"
+      schema:
+        type: string
+        example: "-122.45,37.70,-122.35,37.80"
+    VehicleClass:
+      name: vehicle_class
+      in: query
+      schema:
+        type: string
+        enum:
+          - delivery_drone
+          - inspection_drone
+          - aam_passenger
+          - aam_cargo
+          - tethered_uas
+          - hybrid_evtol
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials
+    BadRequest:
+      description: Invalid request body
+    NotFound:
+      description: Resource not found
+
+  schemas:
+    # ── Feed headers ──
+
+    FeedHeader:
+      type: object
+      required: [timestamp, agency_id, feed_version]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        agency_id:
+          type: string
+        feed_version:
+          type: string
+          example: "0.1"
+
+    # ── Realtime: Vehicle Positions ──
+
+    Position3D:
+      type: object
+      required: [lat, lon, alt_ft_agl]
+      properties:
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+        alt_ft_agl:
+          type: number
+          description: Altitude in feet above ground level
+        alt_ft_msl:
+          type: number
+          description: Altitude in feet above mean sea level
+        heading_deg:
+          type: number
+          minimum: 0
+          maximum: 360
+        speed_kts:
+          type: number
+        climb_rate_fpm:
+          type: number
+
+    VehicleStatus:
+      type: string
+      enum:
+        - pre_flight
+        - in_flight
+        - hovering
+        - landing
+        - charging
+        - grounded
+        - emergency
+
+    VehiclePositionEntity:
+      type: object
+      required: [id, vehicle]
+      properties:
+        id:
+          type: string
+        vehicle:
+          type: object
+          required: [vehicle_id, position, status, timestamp]
+          properties:
+            vehicle_id:
+              type: string
+            position:
+              $ref: "#/components/schemas/Position3D"
+            flight_id:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+            status:
+              $ref: "#/components/schemas/VehicleStatus"
+            battery_pct:
+              type: number
+              minimum: 0
+              maximum: 100
+            signal_strength:
+              type: string
+              enum: [strong, moderate, weak, lost]
+            remote_id_active:
+              type: boolean
+
+    VehiclePositionFeed:
+      type: object
+      required: [header, entities]
+      properties:
+        header:
+          $ref: "#/components/schemas/FeedHeader"
+        entities:
+          type: array
+          items:
+            $ref: "#/components/schemas/VehiclePositionEntity"
+
+    # ── Realtime: Flight Updates ──
+
+    FlightUpdateEntity:
+      type: object
+      required: [id, flight_id, status]
+      properties:
+        id:
+          type: string
+        flight_id:
+          type: string
+        corridor_id:
+          type: string
+        status:
+          type: string
+          enum: [scheduled, active, completed, diverted, cancelled]
+        scheduled_arrival:
+          type: string
+          format: date-time
+        estimated_arrival:
+          type: string
+          format: date-time
+        delay_sec:
+          type: integer
+        delay_reason:
+          type: string
+        next_vertiport_id:
+          type: string
+        progress_pct:
+          type: number
+          minimum: 0
+          maximum: 100
+
+    FlightUpdateFeed:
+      type: object
+      required: [header, entities]
+      properties:
+        header:
+          $ref: "#/components/schemas/FeedHeader"
+        entities:
+          type: array
+          items:
+            $ref: "#/components/schemas/FlightUpdateEntity"
+
+    # ── Realtime: Alerts ──
+
+    AlertEntity:
+      type: object
+      required: [id, alert_type, severity]
+      properties:
+        id:
+          type: string
+        alert_type:
+          type: string
+          enum:
+            - weather_hold
+            - airspace_closure
+            - technical_fault
+            - emergency_landing
+            - geofence_activation
+            - schedule_change
+            - vertiport_closure
+        severity:
+          type: string
+          enum: [low, moderate, severe, critical]
+        affected_corridors:
+          type: array
+          items:
+            type: string
+        affected_vertiports:
+          type: array
+          items:
+            type: string
+        active_period:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+        cause:
+          type: string
+        effect:
+          type: string
+          enum:
+            - operations_suspended
+            - reduced_service
+            - rerouted
+            - delayed
+            - advisory_only
+        header_text:
+          type: string
+        description_text:
+          type: string
+        url:
+          type: string
+          format: uri
+
+    AlertFeed:
+      type: object
+      required: [header, entities]
+      properties:
+        header:
+          $ref: "#/components/schemas/FeedHeader"
+        entities:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertEntity"
+
+    # ── Delivery ──
+
+    DeliveryStatus:
+      type: string
+      enum:
+        - created
+        - queued
+        - loading
+        - picked_up
+        - in_flight
+        - approach
+        - hovering_delivery
+        - delivered
+        - failed
+        - returned
+        - cancelled
+
+    CargoSpec:
+      type: object
+      required: [weight_kg, category]
+      properties:
+        weight_kg:
+          type: number
+        dimensions_cm:
+          type: object
+          properties:
+            l:
+              type: number
+            w:
+              type: number
+            h:
+              type: number
+        category:
+          type: string
+          enum:
+            - retail_general
+            - retail_food
+            - retail_pharmacy
+            - retail_alcohol
+            - medical_supply
+            - medical_specimen
+            - documents
+            - electronics
+            - temperature_sensitive
+            - hazmat_class_1
+            - hazmat_class_2
+            - hazmat_class_3
+            - hazmat_class_4
+            - hazmat_class_5
+            - hazmat_class_6
+            - hazmat_class_7
+            - hazmat_class_8
+            - hazmat_class_9
+        hazmat:
+          type: boolean
+          default: false
+        temperature_controlled:
+          type: boolean
+          default: false
+        fragile:
+          type: boolean
+          default: false
+        declared_value_usd:
+          type: number
+
+    DeliveryRequest:
+      type: object
+      required: [delivery_id, pickup, dropoff, cargo]
+      properties:
+        delivery_id:
+          type: string
+        agency_id:
+          type: string
+        external_ref:
+          type: string
+        pickup:
+          type: object
+          required: [vertiport_id]
+          properties:
+            vertiport_id:
+              type: string
+            scheduled_time:
+              type: string
+              format: date-time
+        dropoff:
+          type: object
+          required: [vertiport_id]
+          properties:
+            vertiport_id:
+              type: string
+            address_hint:
+              type: string
+            lat:
+              type: number
+            lon:
+              type: number
+            contact_code:
+              type: string
+        cargo:
+          $ref: "#/components/schemas/CargoSpec"
+        priority:
+          type: string
+          enum: [standard, express, emergency]
+          default: standard
+        signature_required:
+          type: boolean
+          default: false
+        notify_webhook:
+          type: string
+          format: uri
+
+    TimelineEvent:
+      type: object
+      properties:
+        event:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    DeliverySession:
+      type: object
+      properties:
+        delivery_id:
+          type: string
+        status:
+          $ref: "#/components/schemas/DeliveryStatus"
+        flight_id:
+          type: string
+        vehicle_id:
+          type: string
+        timeline:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineEvent"
+        eta:
+          type: string
+          format: date-time
+        tracking_url:
+          type: string
+          format: uri
+        vehicle_position:
+          $ref: "#/components/schemas/Position3D"
+
+    DeliveryResultRecord:
+      type: object
+      required: [drr_id, delivery_id, agency_id, outcome]
+      properties:
+        drr_id:
+          type: string
+        delivery_id:
+          type: string
+        agency_id:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        duration_sec:
+          type: integer
+        distance_km:
+          type: number
+        vehicle_id:
+          type: string
+        corridor_id:
+          type: string
+        cargo_weight_kg:
+          type: number
+        energy_kwh:
+          type: number
+        outcome:
+          type: string
+          enum: [success, failed, returned, cancelled]
+        delivery_proof:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [photo, signature, code, none]
+            url:
+              type: string
+              format: uri
+            timestamp:
+              type: string
+              format: date-time
+        sla_met:
+          type: boolean
+        co2_saved_vs_truck_g:
+          type: number
+
+    # ── Roaming ──
+
+    PeerRegistration:
+      type: object
+      required: [operator_id, operator_name, alto_endpoint, supported_modules]
+      properties:
+        operator_id:
+          type: string
+        operator_name:
+          type: string
+        alto_endpoint:
+          type: string
+          format: uri
+        supported_modules:
+          type: array
+          items:
+            type: string
+            enum: [static, realtime, delivery, roaming]
+        coverage_geojson_url:
+          type: string
+          format: uri
+        contact_email:
+          type: string
+          format: email
+
+    HandoffRequest:
+      type: object
+      required:
+        - handoff_id
+        - requesting_operator
+        - fulfilling_operator
+        - delivery_ref
+        - handoff_vertiport_id
+        - cargo_spec
+        - final_destination
+      properties:
+        handoff_id:
+          type: string
+        requesting_operator:
+          type: string
+        fulfilling_operator:
+          type: string
+        delivery_ref:
+          type: string
+        handoff_vertiport_id:
+          type: string
+        handoff_time:
+          type: string
+          format: date-time
+        cargo_spec:
+          $ref: "#/components/schemas/CargoSpec"
+        final_destination:
+          type: object
+          required: [lat, lon]
+          properties:
+            lat:
+              type: number
+            lon:
+              type: number
+            address_hint:
+              type: string
+
+    HandoffResponse:
+      type: object
+      properties:
+        handoff_id:
+          type: string
+        status:
+          type: string
+          enum: [accepted, rejected, pending]
+        fulfilling_delivery_id:
+          type: string
+        estimated_pickup_time:
+          type: string
+          format: date-time
+        estimated_delivery_time:
+          type: string
+          format: date-time
