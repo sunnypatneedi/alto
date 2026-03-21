@@ -2,7 +2,7 @@
 
 ## Context
 
-The the industry analysis identifies 4 existential challenges for coordinating black-box autonomous vehicles on private property. ALTO v0.1 currently covers **aerial logistics** (drones, eVTOL) with strong foundations in corridors, vertiports, delivery lifecycle, and roaming. But it has **zero coverage** of ground-level AV coordination — the exact domain the industry needs.
+Industry analysis identifies 4 existential challenges for coordinating black-box autonomous vehicles on private property. ALTO v0.1 currently covers **aerial logistics** (drones, eVTOL) with strong foundations in corridors, vertiports, delivery lifecycle, and roaming. But it has **zero coverage** of ground-level AV coordination — a critical gap for multimodal operations.
 
 The enhancement strategy: extend ALTO from an aerial-only standard into a **multimodal autonomous vehicle coordination standard** that also covers ground AVs operating in private property environments (parking lots, curbs, loading zones, campus roads).
 
@@ -10,7 +10,7 @@ The enhancement strategy: extend ALTO from an aerial-only standard into a **mult
 
 ## Enhancement 1: Ground Vehicle Coordination Extension
 
-**Problem addressed:** AVs as black boxes with no shared control port (the industry challenge #1)
+**Problem addressed:** AVs as black boxes with no shared control port (challenge #1)
 
 ### New static feed: `ground_vehicles.json`
 - `ground_vehicle_id`, `oem` (waymo, tesla, cruise, zoox, etc.), `sensor_suite` (lidar, vision_only, sensor_fusion)
@@ -31,7 +31,7 @@ The enhancement strategy: extend ALTO from an aerial-only standard into a **mult
 
 ## Enhancement 2: Property Zone & Curb Management
 
-**Problem addressed:** No standard for mapping and coordination (the industry challenge #2)
+**Problem addressed:** No standard for mapping and coordination (challenge #2)
 
 ### New static feed: `property_zones.json`
 - `zone_id`, `property_id`, `zone_type` enum:
@@ -55,13 +55,13 @@ The enhancement strategy: extend ALTO from an aerial-only standard into a **mult
 - `reserved_for` (vehicle_id + time window)
 - `occupant_vehicle_id`, `occupied_since`
 
-**Rationale:** This is the single coordination model the industry needs — one way to describe every zone, stall, and constraint on a property, regardless of which OEM shows up.
+**Rationale:** This is the single coordination model needed — one way to describe every zone, stall, and constraint on a property, regardless of which OEM shows up.
 
 ---
 
 ## Enhancement 3: Vehicle Instruction Abstraction Layer
 
-**Problem addressed:** No standard instruction set across OEMs (the industry challenges #1 + #2 + #3)
+**Problem addressed:** No standard instruction set across OEMs (challenges #1 + #2 + #3)
 
 ### New API: Vehicle Instructions
 
@@ -103,13 +103,13 @@ Create a vehicle instruction (the universal abstraction that gets translated per
 - `status`: `pending`, `acknowledged`, `executing`, `completed`, `failed`, `expired`
 - `oem_translation_status`: whether the instruction was successfully mapped to OEM-native format
 
-**Rationale:** This is the "single instruction set" — one abstraction that the industry translates into OEM-specific commands. The `natural_language_hint` field directly addresses the neural-net prompting problem (challenge #3).
+**Rationale:** This is the "single instruction set" — one abstraction that the coordination layer translates into OEM-specific commands. The `natural_language_hint` field directly addresses the neural-net prompting problem (challenge #3).
 
 ---
 
 ## Enhancement 4: Neural Net / VLA Instruction Support
 
-**Problem addressed:** Neural nets don't read maps the way humans do (the industry challenge #3)
+**Problem addressed:** Neural nets don't read maps the way humans do (challenge #3)
 
 ### New static feed: `property_prompts.json`
 Per-property natural language rule sets designed to be consumed by vision-language models:
@@ -158,13 +158,13 @@ Every vehicle instruction carries both:
 
 The OEM profile declares which format the vehicle consumes. The coordination system sends both; the adapter selects the right one.
 
-**Rationale:** This directly addresses Ben's insight that "the map of the future may just be natural language prompts per property." ALTO becomes the standard for expressing those prompts.
+**Rationale:** This directly addresses the insight that "the map of the future may just be natural language prompts per property." ALTO becomes the standard for expressing those prompts.
 
 ---
 
 ## Enhancement 5: Precision Curb Operations
 
-**Problem addressed:** Beyond GPS and basic maps (the industry challenge #4)
+**Problem addressed:** Beyond GPS and basic maps (challenge #4)
 
 ### Enhancements to `property_zones.json`:
 - `approach_path` — ordered waypoints for approaching this zone (not just the zone polygon)
@@ -205,7 +205,7 @@ The OEM profile declares which format the vehicle consumes. The coordination sys
 - Display new feeds, endpoints, and schemas in the existing UI pattern
 
 ### Step 4: Design Lessons updates
-- Add 2 new lessons to ALTOLessons.jsx addressing the the industry-specific failure modes:
+- Add 2 new lessons to ALTOLessons.jsx addressing ground AV coordination failure modes:
   - "Black-Box AV Coordination" — the OEM adapter problem
   - "Neural Net Instruction Formats" — prompts vs maps for VLAs
 
