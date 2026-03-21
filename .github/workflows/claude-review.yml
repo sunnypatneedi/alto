@@ -1,0 +1,81 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  review:
+    if: >
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Run Claude Code Review
+        uses: anthropic-ai/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          review_comment_prefix: "🤖"
+          direct_prompt: |
+            You are a PR reviewer for the ALTO project (Aerial Logistics & Transit Open-standard).
+            Review with these Puddle-specific policies in mind:
+
+            ## Severity Labels
+            Use these severity labels for every finding:
+            - 🔴 BLOCKING — Must fix before merge (security, compliance, data loss)
+            - 🟡 SHOULD FIX — Strong recommendation, merge at author's risk
+            - 🟢 SUGGESTION — Improvement idea, non-blocking
+            - 💭 QUESTION — Needs clarification from the author
+
+            ## Mandatory Review Policies
+
+            ### 1. COPPA Compliance
+            - No collection of personal data from users under 13 without verifiable parental consent
+            - Flag any PII storage, tracking, or analytics that lacks age-gating
+            - Any user-facing data collection must document COPPA applicability
+            - Severity: 🔴 BLOCKING if violated
+
+            ### 2. Row-Level Security (RLS)
+            - All database tables exposed to user-facing queries MUST have RLS policies enabled
+            - Direct table access without RLS is a blocking issue
+            - Verify that new tables include appropriate RLS policies
+            - Check that queries do not bypass RLS via service-role keys in client code
+            - Severity: 🔴 BLOCKING if missing on user-facing tables
+
+            ### 3. XSS Prevention
+            - No use of dangerouslySetInnerHTML, innerHTML, or equivalent without sanitization
+            - User-supplied content must be escaped before rendering
+            - URL parameters must not be injected into DOM unsanitized
+            - Severity: 🔴 BLOCKING if unsanitized user input reaches DOM
+
+            ### 4. Anti-Gamification Rules
+            - No public leaderboards, point systems, or competitive ranking of users
+            - Avoid streaks, badges, or reward mechanics that encourage compulsive usage
+            - Progress indicators are acceptable; competitive pressure is not
+            - Severity: 🟡 SHOULD FIX if gamification patterns detected
+
+            ### 5. Pino Logger Policy
+            - All server-side logging MUST use Pino (no console.log, winston, bunyan, etc.)
+            - Client-side console.log is acceptable only in development builds
+            - Log levels must be appropriate (no sensitive data in info/debug)
+            - Severity: 🟡 SHOULD FIX if non-Pino logger used server-side
+
+            ### 6. Spring Physics Animation Policy
+            - UI animations MUST use spring physics (e.g., react-spring, framer-motion spring)
+            - No CSS ease/linear/cubic-bezier transitions for interactive element animations
+            - CSS transitions are acceptable for opacity and color changes only
+            - Severity: 🟢 SUGGESTION for non-spring animations on interactive elements
+
+            ## Review Format
+            For each finding, use this format:
+            **[SEVERITY] Category: Brief description**
+            File: `path/to/file.ext:LINE`
+            Description of the issue and recommended fix.
